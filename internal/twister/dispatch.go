@@ -9,6 +9,7 @@
 package twister // import "github.com/solnx/twister/internal/twister"
 
 import (
+	"math/rand"
 	"runtime"
 
 	"github.com/mjolnir42/erebos"
@@ -24,8 +25,13 @@ func Dispatch(msg erebos.Transport) error {
 		return err
 	}
 	msg.HostID = hostID
+	if msg.HostID == -1 {
+		//Use random handler
+		Handlers[rand.Int()%runtime.NumCPU()].InputChannel() <- &msg
+	} else {
+		Handlers[hostID%runtime.NumCPU()].InputChannel() <- &msg
+	}
 
-	Handlers[hostID%runtime.NumCPU()].InputChannel() <- &msg
 	return nil
 }
 
