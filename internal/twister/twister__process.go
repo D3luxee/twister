@@ -16,6 +16,7 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/Sirupsen/logrus"
 	"github.com/mjolnir42/erebos"
+	"github.com/raintank/schema"
 	uuid "github.com/satori/go.uuid"
 	wall "github.com/solnx/eye/lib/eye.wall"
 	"github.com/solnx/legacy"
@@ -84,24 +85,52 @@ func (t *Twister) process(msg *erebos.Transport) {
 				return
 			}
 		}
-		data, err := json.Marshal(&msgs[i])
-		if err != nil {
-			logrus.Warnf("Ignoring invalid data: %s", err.Error())
-			logrus.Debugln(`Ignored data:`, msgs[i])
-			continue
+		var data []byte
+		var m2 schema.MetricData
+		var err error
+		if msgs[i].IsMetrics20() && msgs[i].Type != "string" {
+			m2, err = msgs[i].ConvertToMetrics20()
+			if err != nil {
+				logrus.Warnf("Ignoring invalid data: %s", err.Error())
+				logrus.Debugln(`Ignored data:`, msgs[i])
+				continue
+			}
+			data, err = m2.MarshalMsg(data[:])
+			if err != nil {
+				logrus.Warnf("Ignoring invalid data: %s", err.Error())
+				logrus.Debugln(`Ignored data:`, msgs[i])
+				continue
+			}
+		} else {
+			data, err = json.Marshal(&msgs[i])
+			if err != nil {
+				logrus.Warnf("Ignoring invalid data: %s", err.Error())
+				logrus.Debugln(`Ignored data:`, msgs[i])
+				continue
+			}
 		}
 
 		t.delay.Use()
 		go func(idx int, data []byte) {
-			t.dispatch <- &sarama.ProducerMessage{
-				Topic: t.Config.Kafka.ProducerTopic,
-				Key: sarama.StringEncoder(
-					strconv.Itoa(int(msgs[idx].AssetID)),
-				),
-				Value:    sarama.ByteEncoder(data),
-				Metadata: trackingID,
+			if msgs[idx].IsMetrics20() {
+				t.dispatch <- &sarama.ProducerMessage{
+					Topic:    t.Config.Kafka.ProducerTopic,
+					Key:      sarama.ByteEncoder(m2.KeyBySeries(nil)),
+					Value:    sarama.ByteEncoder(data),
+					Metadata: trackingID,
+				}
+				t.delay.Done()
+			} else {
+				t.dispatch <- &sarama.ProducerMessage{
+					Topic: t.Config.Kafka.ProducerTopic,
+					Key: sarama.StringEncoder(
+						strconv.Itoa(int(msgs[idx].AssetID)),
+					),
+					Value:    sarama.ByteEncoder(data),
+					Metadata: trackingID,
+				}
+				t.delay.Done()
 			}
-			t.delay.Done()
 		}(i, data)
 		produced++
 	}
