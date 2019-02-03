@@ -20,6 +20,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	wall "github.com/solnx/eye/lib/eye.wall"
 	"github.com/solnx/legacy"
+	"github.com/solnx/twister/internal/schema"
 )
 
 // process is the handler for converting a MetricBatch
@@ -114,7 +115,7 @@ func (t *Twister) process(msg *erebos.Transport) {
 		go func(idx int, data []byte) {
 			if msgs[idx].IsMetrics20() {
 				t.dispatch <- &sarama.ProducerMessage{
-					Topic:    t.Config.Kafka.ProducerTopic,
+					Topic:    t.Config.Twister.Metrics20TopicPrefix + t.Config.Kafka.ProducerTopic,
 					Key:      sarama.ByteEncoder(m2.KeyBySeries(nil)),
 					Value:    sarama.ByteEncoder(data),
 					Metadata: trackingID,
