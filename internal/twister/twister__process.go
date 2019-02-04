@@ -15,12 +15,11 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/Sirupsen/logrus"
+	"github.com/d3luxee/schema"
 	"github.com/mjolnir42/erebos"
-	"github.com/raintank/schema"
 	uuid "github.com/satori/go.uuid"
 	wall "github.com/solnx/eye/lib/eye.wall"
 	"github.com/solnx/legacy"
-	"github.com/solnx/twister/internal/schema"
 )
 
 // process is the handler for converting a MetricBatch
